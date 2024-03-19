@@ -1,0 +1,7 @@
+semi: false
+tabWidth: 4
+endOfLine: "lf"
+printWidth: 90
+singleQuote: true
+arrowParens: "avoid"
+trailingComma: "es5"
