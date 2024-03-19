@@ -9,7 +9,8 @@
         "typescript": "^5.4"
     },
     "dependencies": {
-        "discord.js": "^14.14"
+        "discord.js": "^14.14",
+        "glob": "^10.3"
     },
     "license": "MIT"
 }

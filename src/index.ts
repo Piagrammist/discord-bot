@@ -11,10 +11,12 @@ const client: any = new Client({
     ],
 })
 
-client.commands = deploy.collectCommands()
-deploy.registerCommands(token, clientId, [...client.commands.values()])
+client.commands = deploy.commands.collect()
+;(async () => {
+    await deploy.commands.register(token, clientId, [...client.commands.values()])
+})()
 
-for (const event of deploy.collectEvents()) {
+for (const event of deploy.events.iter()) {
     if (event?.once) {
         client.once(event.name, event.execute)
     } else {
