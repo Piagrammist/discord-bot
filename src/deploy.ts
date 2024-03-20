@@ -7,26 +7,46 @@ interface Command {
     execute: Function
 }
 
+function* iterPlugins(
+    root: string,
+    validator: (plugin: object) => boolean,
+    reason: string
+) {
+    const it = globIterateSync(['**/*.ts', '**/*.js'], {
+        cwd: root,
+        absolute: true,
+    })
+    for (const pluginPath of it) {
+        const content = require(pluginPath)?.default
+        if (!validator(content)) {
+            console.log(`[WARN] Skipping "${pluginPath}" due to ${reason}`)
+        }
+        yield {
+            path: pluginPath,
+            content,
+        }
+    }
+}
+
 export const commands = {
     collect() {
         const commands = new Collection<string, Command>()
-        const cwd = join(__dirname, 'commands')
-        const scripts = globIterateSync('**/*.ts', { cwd, absolute: true })
-
-        for (const scriptPath of scripts) {
-            const command = require(scriptPath)?.default
-            if (!('data' in command && 'execute' in command)) {
-                console.log(
-                    `[WARN] The command at "${scriptPath}" is missing a required \`data\` or \`execute\` property.`
-                )
-                continue
-            }
-            commands.set(command.data.name, command)
+        const it = iterPlugins(
+            join(__dirname, 'commands'),
+            c => 'data' in c && 'execute' in c,
+            'missing a required `data` or `execute` property.'
+        )
+        for (const command of it) {
+            commands.set(command.content.data.name, command.content)
         }
         return commands
     },
-    async register(token: string, clientId: string, commands: Array<Command>) {
-        if (commands.length === 0) {
+    async register(
+        token: string,
+        clientId: string,
+        commands: Collection<string, Command>
+    ) {
+        if (commands.size === 0) {
             console.log('[WARN] No commands available to register.')
             return
         }
@@ -34,10 +54,10 @@ export const commands = {
         const rest = new REST().setToken(token)
         try {
             console.log(
-                `[INFO] Started refreshing ${commands.length} application (/) commands.`
+                `[INFO] Started refreshing ${commands.size} application (/) commands.`
             )
             const data = await rest.put(Routes.applicationCommands(clientId), {
-                body: commands.map(c => c.data.toJSON()),
+                body: [...commands.values()].map(c => c.data.toJSON()),
             })
             console.log(
                 // @ts-ignore
@@ -49,20 +69,38 @@ export const commands = {
     },
 }
 
+export const messageHandlers = {
+    collect() {
+        const handlers = []
+        const cwd = join(__dirname, 'message-handlers')
+        const it = iterPlugins(
+            cwd,
+            h => typeof h === 'function',
+            'the handler file not exporting a default function'
+        )
+        for (const handler of it) {
+            handlers.push(
+                /* Name of the handler for Map objects */
+                // handler.path
+                //     .replace(cwd, '')
+                //     .replace(/\.[tj]s/i, '')
+                //     .replaceAll(/[\\\/]/g, '-'),
+                handler.content
+            )
+        }
+        return handlers
+    },
+}
+
 export const events = {
     *iter() {
-        const cwd = join(__dirname, 'events')
-        const events = globIterateSync('**/*.ts', { cwd, absolute: true })
-
-        for (const eventPath of events) {
-            const event = require(eventPath)?.default
-            if (!('name' in event && 'execute' in event)) {
-                console.log(
-                    `[WARN] The event at "${eventPath}" is missing a required \`name\` or \`execute\` property.`
-                )
-                continue
-            }
-            yield event
+        const it = iterPlugins(
+            join(__dirname, 'events'),
+            e => 'name' in e && 'execute' in e,
+            'missing a required `name` or `execute` property.'
+        )
+        for (const event of it) {
+            yield event.content
         }
     },
 }

@@ -1,6 +1,6 @@
-import { Client, GatewayIntentBits } from 'discord.js'
-import { token, clientId } from '../config.json'
+import { Client, Events, GatewayIntentBits } from 'discord.js'
 import * as deploy from './deploy'
+import * as conf from '../config.json'
 
 const client: any = new Client({
     intents: [
@@ -12,11 +12,12 @@ const client: any = new Client({
 })
 
 client.commands = deploy.commands.collect()
-;(async () => {
-    await deploy.commands.register(token, clientId, [...client.commands.values()])
-})()
+client.messageHandlers = deploy.messageHandlers.collect()
 
 for (const event of deploy.events.iter()) {
+    if (event.name === Events.InteractionCreate && client.commands.size === 0) continue
+    if (event.name === Events.MessageCreate && client.messageHandlers.size === 0) continue
+
     if (event?.once) {
         client.once(event.name, event.execute)
     } else {
@@ -24,4 +25,7 @@ for (const event of deploy.events.iter()) {
     }
 }
 
-client.login(token)
+;(async () => {
+    await deploy.commands.register(conf.token, conf.clientId, client.commands)
+})()
+client.login(conf.token)
