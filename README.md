@@ -1,4 +1,4 @@
-# Discord Dirty Bot
+# Discord Bot Template
 
 ## Usage
 
